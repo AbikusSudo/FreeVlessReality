@@ -33,16 +33,8 @@ jobs:
           chmod +x bore
           sudo mv bore /usr/local/bin/
 
-      - name: Start tunnel
-        run: |
-          bore local 8880 --to bore.pub &
-          sleep 3
-
       - name: Start sing-box
         run: |
+          bore local 8880 --to bore.pub &
           ./sing-box-bin run -c config.json &
-          sleep 3
-
-      - name: Keep alive
-        run: |
           sleep 21600
