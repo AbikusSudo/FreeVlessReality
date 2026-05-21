@@ -1,3 +1,62 @@
+name: Sing-Box Reality Server
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/run.yaml'
+
+jobs:
+  reality-server:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Download sing-box binary
+        run: |
+          curl -L https://github.com/SagerNet/sing-box/releases/download/v1.11.6/sing-box-1.11.6-linux-amd64.tar.gz -o sing-box.tar.gz
+          tar xzf sing-box.tar.gz
+          cp sing-box-*/sing-box ./sing-box-bin
+          chmod +x sing-box-bin
+
+      - name: Read config
+        run: |
+          if [ -f sb.conf ]; then
+            cp sb.conf config.json
+            echo "Config loaded from sb.conf"
+          else
+            echo "sb.conf not found! Create it in repo root."
+            exit 1
+          fi
+
+      - name: Install bore
+        run: |
+          curl -L https://github.com/ekzhang/bore/releases/download/v0.5.2/bore-v0.5.2-x86_64-unknown-linux-musl.tar.gz -o bore.tar.gz
+          tar xzf bore.tar.gz
+          chmod +x bore
+          sudo mv bore /usr/local/bin/
+
+      - name: Start tunnel and get port
+        run: |
+          bore local 8880 --to bore.pub > bore.log 2>&1 &
+          sleep 3
+          PORT=$(grep -oP 'bore\.pub:\K[0-9]+' bore.log || echo "unknown")
+          echo "PORT=$PORT" >> $GITHUB_ENV
+          echo "Tunnel: bore.pub:$PORT"
+
+      - name: Write address to Current.txt
+        run: |
+          echo "bore.pub:${{ env.PORT }}" > Current.txt
+          cat Current.txt
+
+      - name: Start sing-box
+        run: |
+          ./sing-box-bin run -c config.json &
+          sleep 3
+
       - name: Keep alive
         run: |
           echo "Server running at bore.pub:${{ env.PORT }}"
